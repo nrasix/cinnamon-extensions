@@ -29,6 +29,7 @@
                 "dock-position",
                 "dock-alignment",
                 "full-width",
+                "dock-margin",
                 "bg-color",
                 "border-radius",
                 "icon-size",
@@ -115,6 +116,17 @@
         "type": "switch",
         "default": false,
         "description": "Extend dock"
+    },
+    "dock-margin": {
+        "type": "spinbutton",
+        "default": 10,
+        "min": 0,
+        "max": 100,
+        "step": 1,
+        "units": "px",
+        "description": "Margin from screen edge",
+        "tooltip": "Distance between the dock and the screen edge it is attached to. Does not apply to a full-width dock.",
+        "dependency": "!full-width"
     },
     "bg-color": {
         "type": "colorchooser",

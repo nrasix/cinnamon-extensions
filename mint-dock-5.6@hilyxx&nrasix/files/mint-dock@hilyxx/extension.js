@@ -49,6 +49,49 @@ function getDockPadding(iconSize) {
     return `${vertical}px ${horizontal}px`;
 }
 
+// Position a dock popup menu next to the dock edge. PopupMenu recalculates its
+// position on open and whenever its allocation changes, so a one-shot
+// set_position() call gets overwritten. Overriding _calculatePosition() makes
+// every internal position update (open animation, resize, close) use the dock
+// geometry instead, keeping the menu above/beside the dock.
+function attachDockMenuPosition(menu, anchorActor, dockActor, dockPosition) {
+    menu._calculatePosition = function() {
+        let [ax, ay] = anchorActor.get_transformed_position();
+        let aW = anchorActor.get_width();
+        let aH = anchorActor.get_height();
+
+        let [, natW] = menu.actor.get_preferred_width(-1);
+        let [, natH] = menu.actor.get_preferred_height(natW);
+
+        let [dockX, dockY] = dockActor.get_transformed_position();
+        let dockW = dockActor.get_width();
+        let dockH = dockActor.get_height();
+
+        let menuX, menuY;
+        let isVert = dockPosition === 'left' || dockPosition === 'right';
+
+        if (isVert) {
+            menuY = Math.round(ay + (aH / 2) - (natH / 2));
+            menuX = Math.round(dockPosition === 'left' ? dockX + dockW + 2 : dockX - natW - 2);
+            // sideFlipped tells PopupMenu which way to animate from.
+            menu.sideFlipped = dockPosition === 'right';
+        } else {
+            menuX = Math.round(ax + (aW / 2) - (natW / 2));
+            menuY = Math.round(dockPosition === 'top' ? dockY + dockH + 2 : dockY - natH - 2);
+            menu.sideFlipped = dockPosition === 'bottom';
+        }
+
+        // Keep the menu inside the monitor even for icons near the edges.
+        let monitor = Main.layoutManager.findMonitorForActor(anchorActor);
+        if (monitor) {
+            menuX = Math.max(monitor.x, Math.min(menuX, monitor.x + monitor.width - natW));
+            menuY = Math.max(monitor.y, Math.min(menuY, monitor.y + monitor.height - natH));
+        }
+
+        return [menuX, menuY];
+    };
+}
+
 function getIconButtonStyle(dockPosition, iconSize, spacing, settings) {
     let isVert = dockPosition === 'left' || dockPosition === 'right';
     let margin = Math.round(Math.max(0, spacing) / 2);
@@ -957,6 +1000,8 @@ class DockAppList {
                 Main.uiGroup.add_actor(menu.actor);
                 menu.actor.hide();
 
+                attachDockMenuPosition(menu, button, this.actor.get_parent() || this.actor, this.dockPosition);
+
                 let elements = this.buttons.get(appId);
                 if (elements) elements.menu = menu;
 
@@ -1071,29 +1116,8 @@ class DockAppList {
 
                 menu.connect('open-state-changed', (m, open) => {
                     if (open) {
-                        let [x, y] = button.get_transformed_position();
-                        if (isNaN(x) || isNaN(y)) return;
-                        
-                        let bW = button.get_width();
-                        let bH = button.get_height();
-                        
-                        let [, natW] = menu.actor.get_preferred_width(-1);
-                        let [, natH] = menu.actor.get_preferred_height(natW);
-
-                        let dockActor = this.actor.get_parent() || this.actor;
-                        let [dockX, dockY] = dockActor.get_transformed_position();
-                        let dockW = dockActor.get_width();
-                        let dockH = dockActor.get_height();
-                        let menuX, menuY;
-                        
-                        if (this.dockPosition === 'left' || this.dockPosition === 'right') {
-                            menuY = Math.round(y + (bH / 2) - (natH / 2));
-                            menuX = Math.round(this.dockPosition === 'left' ? dockX + dockW + 2 : dockX - natW - 2);
-                        } else {
-                            menuX = Math.round(x + (bW / 2) - (natW / 2));
-                            menuY = Math.round(this.dockPosition === 'top' ? dockY + dockH + 2 : dockY - natH - 2);
-                        }
-                        menu.actor.set_position(menuX, menuY);
+                        let [x, y] = menu._calculatePosition();
+                        menu.actor.set_position(x, y);
                     }
                 });
 
@@ -1843,30 +1867,10 @@ class DashDock {
         });
         this.trashMenu.addMenuItem(emptyTrashItem);
 
+        attachDockMenuPosition(this.trashMenu, this.trashButton, this.actor, this.dockPosition);
+
         this.trashMenu.connect('open-state-changed', (m, open) => {
-            if (open) {
-                this._hideTrashTooltip();
-                let [x, y] = this.trashButton.get_transformed_position();
-                if (isNaN(x) || isNaN(y)) return;
-                let bW = this.trashButton.get_width();
-                let bH = this.trashButton.get_height();
-                let [, natW] = this.trashMenu.actor.get_preferred_width(-1);
-                let [, natH] = this.trashMenu.actor.get_preferred_height(natW);
-                
-                let [dockX, dockY] = this.actor.get_transformed_position();
-                let dockW = this.actor.get_width();
-                let dockH = this.actor.get_height();
-                let menuX, menuY;
-                
-                if (this.dockPosition === 'left' || this.dockPosition === 'right') {
-                    menuY = Math.round(y + (bH / 2) - (natH / 2));
-                    menuX = Math.round(this.dockPosition === 'left' ? dockX + dockW + 2 : dockX - natW - 2);
-                } else {
-                    menuX = Math.round(x + (bW / 2) - (natW / 2));
-                    menuY = Math.round(this.dockPosition === 'top' ? dockY + dockH + 2 : dockY - natH - 2);
-                }
-                this.trashMenu.actor.set_position(menuX, menuY);
-            }
+            if (open) this._hideTrashTooltip();
         });
 
         this.trashButton.connect('button-release-event', (actor, event) => {
@@ -1918,6 +1922,7 @@ class DashDock {
         this.settings.bindProperty(Settings.BindingDirection.IN, 'dock-position', 'dockPosition', this._onPositionSettingsChanged.bind(this), null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'dock-alignment', 'dockAlignment', this._updatePosition.bind(this), null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'full-width', 'fullWidth', this._onFullWidthChanged.bind(this), null);
+        this.settings.bindProperty(Settings.BindingDirection.IN, 'dock-margin', 'dockMargin', this._updatePosition.bind(this), null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-delay', 'showDelay', () => {}, null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-tooltips', 'showTooltips', this._onShowTooltipsChanged.bind(this), null);
         this.settings.bindProperty(Settings.BindingDirection.IN, 'show-trash', 'showTrash', this._updateTrashVisibility.bind(this), null);
@@ -2214,26 +2219,7 @@ class DashDock {
         });
         this.dockMenu.addMenuItem(settingsItem);
 
-        this.dockMenu.connect('open-state-changed', (m, open) => {
-            if (open) {
-                let [x, y] = this.actor.get_transformed_position();
-                if (isNaN(x) || isNaN(y)) return;
-                let dW = this.actor.get_width();
-                let dH = this.actor.get_height();
-                let [, natW] = this.dockMenu.actor.get_preferred_width(-1);
-                let [, natH] = this.dockMenu.actor.get_preferred_height(natW);
-                
-                let menuX, menuY;
-                if (this.dockPosition === 'left' || this.dockPosition === 'right') {
-                    menuY = Math.round(y + (dH / 2) - (natH / 2));
-                    menuX = Math.round(this.dockPosition === 'left' ? x + dW + 2 : x - natW - 2);
-                } else {
-                    menuX = Math.round(x + (dW / 2) - (natW / 2));
-                    menuY = Math.round(this.dockPosition === 'top' ? y + dH + 2 : y - natH - 2);
-                }
-                this.dockMenu.actor.set_position(menuX, menuY);
-            }
-        });
+        attachDockMenuPosition(this.dockMenu, this.actor, this.actor, this.dockPosition);
     }
 
     _onPositionSettingsChanged() {
@@ -2398,8 +2384,9 @@ class DashDock {
     }
 
     _getDockMargin() {
-        if (this.fullWidth || this.dockPosition === 'bottom') return 0;
-        return UI_DOCK_MARGIN;
+        if (this.fullWidth) return 0;
+        let margin = Number(this.dockMargin);
+        return (isFinite(margin) && margin >= 0) ? margin : UI_DOCK_MARGIN;
     }
 
     _updatePosition() {
