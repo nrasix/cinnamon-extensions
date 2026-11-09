@@ -12,3 +12,8 @@ A native and customizable dock for Cinnamon.
 * The notification badge and progress bar are displayed
 * Compatible with both X11 and Wayland
 * And much more!
+
+---
+
+**Author:** [hilyxx](https://github.com/Hilyxx)  
+**Cinnamon 5.6 adaptation and maintenance:** [nrasix](https://github.com/nrasix)

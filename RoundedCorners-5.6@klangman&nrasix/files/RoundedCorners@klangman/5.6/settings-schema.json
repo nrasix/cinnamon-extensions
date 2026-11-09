@@ -387,7 +387,7 @@
         "type": "custom",
         "file": "CustomWidgets.py",
         "widget": "About",
-        "description": "\n<b>Rounded Corners</b>\nVersion: ext-version\n\nDeveloped by: Kevin Langman\n<a href=\"https://github.com/klangman/CinnamonRoundedCorners\">Github</a> / <a href=\"https://github.com/klangman/CinnamonRoundedCorners/issues/new\">Report an issue</a>\n\nThe rounded corners effect is based on Blur-my-shell code by aunetx and contributors <a href=\"https://github.com/aunetx/blur-my-shell\">Github</a> / <a href=\"https://ko-fi.com/aunetx\">Ko-fi</a>",
+        "description": "\n<b>Rounded Corners</b>\nVersion: ext-version\n\nDeveloped by: Kevin Langman\nCinnamon 5.6 adaptation and maintenance: nrasix\n<a href=\"https://github.com/klangman/CinnamonRoundedCorners\">Github</a> / <a href=\"https://github.com/klangman/CinnamonRoundedCorners/issues/new\">Report an issue</a>\n\nThe rounded corners effect is based on Blur-my-shell code by aunetx and contributors <a href=\"https://github.com/aunetx/blur-my-shell\">Github</a> / <a href=\"https://ko-fi.com/aunetx\">Ko-fi</a>",
         "icon": "/icon.png"
     },
     "ext-version": {
